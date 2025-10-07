@@ -1,0 +1,47 @@
+# Versão do Docker Compose
+version: '3.8'
+
+services:
+  # --- Serviço para o Banco de Dados MongoDB (Read Model) ---
+  mongodb:
+    image: mongo:6.0
+    container_name: bank-mongo-db
+    ports:
+      # Mapeia a porta do container (direita) para a porta do seu computador (esquerda)
+      - "27017:27017"
+    volumes:
+      # Cria um volume para que os dados do MongoDB não sejam perdidos ao reiniciar o container
+      - mongo-data:/data/db
+    environment:
+      # Define o nome do banco de dados que será criado na inicialização
+      - MONGO_INITDB_DATABASE=bank_read_db
+    networks:
+      - bank-network
+
+  # --- Serviço para a Aplicação Spring Boot ---
+  bank-app:
+    # Constrói a imagem Docker a partir do Dockerfile no diretório atual (.)
+    build: .
+    container_name: bank-app-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      # Garante que o serviço 'mongodb' esteja pronto antes de iniciar a aplicação
+      - mongodb
+    environment:
+      # Sobrescreve a configuração do application.properties para conectar ao container do MongoDB
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/bank_read_db
+      # Passa o segredo do JWT como variável de ambiente (mais seguro)
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    networks:
+      - bank-network
+
+# Define as redes que os containers usarão para se comunicar
+networks:
+  bank-network:
+    driver: bridge
+
+# Define os volumes nomeados para persistência de dados
+volumes:
+  mongo-data:
+    driver: local
